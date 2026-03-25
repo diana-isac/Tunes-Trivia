@@ -1,0 +1,606 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tunes & Trivia — Babson '26</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #00573F;
+    --deep: #004a35;
+    --card: #005c43;
+    --gold: #f5c842;
+    --amber: #e8a020;
+    --neon: #ffffff;
+    --white: #f0ede6;
+    --muted: #a8c5bb;
+    --groove: #004a35;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: repeating-radial-gradient(circle, #004a35 0px, #004a35 3px, #003d2b 3px, #003d2b 6px);
+    opacity: 0.4;
+    pointer-events: none;
+    animation: spin 30s linear infinite;
+  }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid #004a35;
+    position: sticky; top: 0;
+    background: rgba(0,87,63,0.97);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--gold);
+  }
+
+  .logo span { color: #ffffff; }
+
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--deep);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid #004a35;
+  }
+
+  .nav-tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .nav-tab.active { background: var(--gold); color: #003d2b; }
+
+  .babson-tag {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .main { padding: 40px 32px; max-width: 720px; margin: 0 auto; }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 10vw, 88px);
+    line-height: 0.9;
+    letter-spacing: 2px;
+    animation: fadeIn 0.6s ease forwards;
+  }
+
+  .hero-title .outline {
+    -webkit-text-stroke: 2px var(--gold);
+    color: transparent;
+  }
+
+  .hero-sub {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: fadeIn 0.6s 0.1s ease both;
+  }
+
+  .divider {
+    width: 60px; height: 3px;
+    background: var(--gold);
+    margin: 24px 0;
+    animation: fadeIn 0.6s 0.15s ease both;
+  }
+
+  .form-card {
+    background: var(--card);
+    border: 1px solid #006b4f;
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 20px;
+    animation: fadeIn 0.6s 0.2s ease both;
+  }
+
+  .name-section label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .name-input {
+    width: 100%;
+    background: var(--groove);
+    border: 2px solid #006b4f;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 18px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--white);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .name-input:focus { border-color: var(--gold); }
+  .name-input::placeholder { color: #6a9e8f; }
+
+  .q-text { font-size: 17px; font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
+
+  .options { display: flex; flex-direction: column; gap: 10px; }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 2px solid #006b4f;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--groove);
+  }
+
+  .option:hover { border-color: #008a66; background: #004a35; }
+  .option.selected { border-color: var(--gold); background: rgba(245, 200, 66, 0.1); }
+  .option.correct { border-color: #a8e6a3; background: rgba(168, 230, 163, 0.1); }
+  .option.wrong { border-color: #ff8fa3; background: rgba(255, 143, 163, 0.1); }
+
+  .option-circle {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid #6a9e8f;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .option.selected .option-circle { border-color: var(--gold); background: var(--gold); color: #003d2b; }
+  .option.correct .option-circle { border-color: #a8e6a3; background: #a8e6a3; color: #003d2b; }
+  .option.wrong .option-circle { border-color: #ff8fa3; background: #ff8fa3; color: #003d2b; }
+
+  .option-text { font-size: 15px; }
+
+  .q-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; }
+
+  .progress-dots { display: flex; gap: 8px; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #006b4f; transition: background 0.2s; }
+  .dot.done { background: var(--gold); }
+  .dot.current { background: #ffffff; }
+
+  .btn {
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .btn-gold { background: var(--gold); color: #003d2b; }
+  .btn-gold:hover { background: var(--amber); transform: translateY(-1px); }
+  .btn-gold:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid #006b4f; }
+  .btn-ghost:hover { border-color: #a8c5bb; color: var(--white); }
+
+  .result-card { text-align: center; padding: 48px 32px; animation: fadeIn 0.5s ease forwards; }
+
+  .score-ring {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: conic-gradient(var(--gold) 0%, var(--gold) var(--pct), #004a35 var(--pct));
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    position: relative;
+  }
+
+  .score-ring::before {
+    content: '';
+    position: absolute;
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: var(--card);
+  }
+
+  .score-num {
+    position: relative;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--gold);
+    z-index: 1;
+  }
+
+  .result-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 2px; margin-bottom: 8px; }
+  .result-sub { color: var(--muted); font-size: 14px; }
+
+  .lb-header { text-align: center; margin-bottom: 40px; animation: fadeIn 0.5s ease forwards; }
+  .lb-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(48px, 8vw, 72px); letter-spacing: 3px; color: var(--gold); }
+  .lb-subtitle { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+  .lb-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #ffffff;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 16px;
+  }
+
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffffff; animation: pulse 1.5s infinite; }
+
+  .lb-entry {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+    background: var(--card);
+    border: 1px solid #006b4f;
+    animation: slideIn 0.4s ease both;
+  }
+
+  .lb-entry:nth-child(1) { border-color: var(--gold); background: rgba(245,200,66,0.08); animation-delay: 0.05s; }
+  .lb-entry:nth-child(2) { border-color: #ccc; background: rgba(200,200,200,0.05); animation-delay: 0.1s; }
+  .lb-entry:nth-child(3) { border-color: #cd7f32; background: rgba(205,127,50,0.05); animation-delay: 0.15s; }
+
+  .rank-badge { font-family: 'Bebas Neue', sans-serif; font-size: 28px; width: 44px; text-align: center; flex-shrink: 0; }
+  .rank-1 { color: var(--gold); }
+  .rank-2 { color: #ccc; }
+  .rank-3 { color: #cd7f32; }
+  .rank-other { color: #6a9e8f; font-size: 20px; }
+
+  .lb-name { flex: 1; font-size: 18px; font-weight: 600; }
+  .lb-score { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--gold); letter-spacing: 1px; }
+  .lb-score span { font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--muted); font-weight: 400; }
+
+  .empty-state { text-align: center; padding: 60px; color: var(--muted); }
+  .empty-state .big { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-size: 14px; letter-spacing: 1px; }
+
+  .reset-btn {
+    display: block;
+    margin: 32px auto 0;
+    padding: 10px 24px;
+    background: transparent;
+    border: 1px solid #006b4f;
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .reset-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .vinyl-decor {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: repeating-radial-gradient(circle, #006b4f 0px, #006b4f 2px, #004a35 2px, #004a35 5px);
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 12px;
+    animation: spin 4s linear infinite;
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="logo">TUNES <span>&</span> TRIVIA</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-play" onclick="switchTab('play')">🎵 Play</button>
+    <button class="nav-tab" id="tab-board" onclick="switchTab('board')">🏆 Leaderboard</button>
+  </div>
+  <div class="babson-tag">Babson '26</div>
+</nav>
+
+<div class="main" id="main-content"></div>
+
+<script>
+  if (!window.storage) {
+    window.storage = {
+      async get(key) {
+        const value = localStorage.getItem(key);
+        return value === null ? null : { value };
+      },
+      async set(key, value) {
+        localStorage.setItem(key, value);
+      },
+      async delete(key) {
+        localStorage.removeItem(key);
+      }
+    };
+  }
+
+  const QUESTIONS = [
+    {
+      type: "trivia",
+      q: "Which artist holds the record for the most Grammy wins ever?",
+      options: ["Taylor Swift", "Beyoncé", "Georg Solti", "Quincy Jones"],
+      answer: 1
+    },
+    {
+      type: "lyric",
+      q: "🎤 Finish the lyric: \"Is this the real life? Is this just fantasy? Caught in a landslide...\"",
+      options: ["No escape from reality", "Can't stop the feeling", "Under pressure", "Dancing in the moonlight"],
+      answer: 0
+    },
+    {
+      type: "trivia",
+      q: "What year did Spotify launch to the public?",
+      options: ["2006", "2008", "2011", "2015"],
+      answer: 1
+    },
+    {
+      type: "lyric",
+      q: "🎤 Finish the lyric: \"I got a feeling... that tonight's gonna be a good night, that tonight's gonna be a good, good...\"",
+      options: ["Night to remember", "Night", "Day", "Time"],
+      answer: 1
+    },
+    {
+      type: "trivia",
+      q: "Which city is known as the birthplace of jazz?",
+      options: ["Chicago", "Memphis", "New Orleans", "New York"],
+      answer: 2
+    }
+  ];
+
+  let view = 'play';
+  let playerName = '';
+  let currentQ = 0;
+  let answers = [];
+  let selected = null;
+  let submitted = false;
+  let scores = [];
+  let refreshInterval = null;
+
+  async function loadScores() {
+    try {
+      const res = await window.storage.get('trivia-scores-green', true);
+      scores = res ? JSON.parse(res.value) : [];
+    } catch (e) { scores = []; }
+  }
+
+  async function saveScore(name, score) {
+    try {
+      const res = await window.storage.get('trivia-scores-green', true);
+      const existing = res ? JSON.parse(res.value) : [];
+      existing.push({ name, score, time: Date.now() });
+      existing.sort((a, b) => b.score - a.score || a.time - b.time);
+      await window.storage.set('trivia-scores-green', JSON.stringify(existing), true);
+      scores = existing;
+    } catch (e) {}
+  }
+
+  async function clearScores() {
+    try { await window.storage.delete('trivia-scores-green', true); scores = []; } catch (e) {}
+    renderBoard();
+  }
+
+  async function switchTab(tab) {
+    view = tab;
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (tab === 'board') {
+      clearInterval(refreshInterval);
+      await loadScores();
+      renderBoard();
+      refreshInterval = setInterval(async () => { await loadScores(); renderBoard(); }, 3000);
+    } else {
+      clearInterval(refreshInterval);
+      renderPlay();
+    }
+  }
+
+  function startGame() {
+    const inp = document.getElementById('pname');
+    if (!inp || !inp.value.trim()) { inp.style.borderColor = 'var(--gold)'; return; }
+    playerName = inp.value.trim();
+    currentQ = 0; answers = []; selected = null; submitted = false;
+    renderQuestion();
+  }
+
+  function selectOption(idx) { if (submitted) return; selected = idx; renderQuestion(); }
+
+  function confirmAnswer() {
+    if (selected === null) return;
+    submitted = true;
+    answers.push(selected);
+    renderQuestion();
+  }
+
+  async function nextQuestion() {
+    currentQ++;
+    selected = null; submitted = false;
+    if (currentQ >= QUESTIONS.length) {
+      const score = answers.filter((a, i) => a === QUESTIONS[i].answer).length;
+      await saveScore(playerName, score);
+      renderResult(score);
+    } else {
+      renderQuestion();
+    }
+  }
+
+  function playAgain() {
+    playerName = ''; currentQ = 0; answers = []; selected = null; submitted = false;
+    renderPlay();
+  }
+
+  function renderPlay() {
+    const c = document.getElementById('main-content');
+    c.innerHTML = `
+      <div style="animation: fadeIn 0.5s ease forwards;">
+        <div class="hero-title">TUNES<br><span class="outline">&amp; TRIVIA</span></div>
+        <p class="hero-sub">Horn Commons · Babson College · 8 AM</p>
+        <div class="divider"></div>
+        <div class="form-card">
+          <div class="name-section">
+            <label>Your Name</label>
+            <input class="name-input" id="pname" placeholder="Enter your name to start..." maxlength="30" />
+          </div>
+          <div style="margin-top: 24px; display: flex; gap: 12px; align-items: center;">
+            <button class="btn btn-gold" onclick="startGame()">Start Playing →</button>
+            <span style="color: var(--muted); font-size: 13px;">${QUESTIONS.length} questions · ~2 min</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 24px; margin-top: 8px; flex-wrap: wrap;">
+          <div style="background: var(--card); border: 1px solid #006b4f; border-radius: 14px; padding: 18px 22px; flex: 1; min-width: 140px;">
+            <div style="font-size: 28px; margin-bottom: 4px;">☕</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);">Free Coffee</div>
+          </div>
+          <div style="background: var(--card); border: 1px solid #006b4f; border-radius: 14px; padding: 18px 22px; flex: 1; min-width: 140px;">
+            <div style="font-size: 28px; margin-bottom: 4px;">🏆</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);">Win a Record Player</div>
+          </div>
+          <div style="background: var(--card); border: 1px solid #006b4f; border-radius: 14px; padding: 18px 22px; flex: 1; min-width: 140px;">
+            <div style="font-size: 28px; margin-bottom: 4px;">🎵</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);">Free Prizes</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderQuestion() {
+    const c = document.getElementById('main-content');
+    const q = QUESTIONS[currentQ];
+    const isLyric = q.type === 'lyric';
+    const dotsHTML = QUESTIONS.map((_, i) => `<div class="dot ${i < currentQ ? 'done' : i === currentQ ? 'current' : ''}"></div>`).join('');
+    const optHTML = q.options.map((opt, i) => {
+      let cls = '';
+      if (submitted) { if (i === q.answer) cls = 'correct'; else if (i === selected) cls = 'wrong'; }
+      else if (i === selected) cls = 'selected';
+      return `<div class="option ${cls}" onclick="selectOption(${i})">
+        <div class="option-circle">${['A','B','C','D'][i]}</div>
+        <div class="option-text">${opt}</div>
+      </div>`;
+    }).join('');
+
+    c.innerHTML = `
+      <div style="animation: fadeIn 0.3s ease forwards;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px;">
+          <div class="progress-dots">${dotsHTML}</div>
+          <span style="color: var(--muted); font-size: 12px; letter-spacing: 1px; margin-left: 4px;">${currentQ + 1} / ${QUESTIONS.length}</span>
+          <span style="margin-left: auto; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; padding: 4px 12px; border-radius: 100px; background: ${isLyric ? 'rgba(255,255,255,0.1)' : 'rgba(245,200,66,0.15)'}; color: ${isLyric ? '#ffffff' : 'var(--gold)'}; font-weight: 700;">${isLyric ? '🎤 Finish the Lyric' : '🎵 Trivia'}</span>
+        </div>
+        <div class="form-card">
+          <div class="q-text">${q.q}</div>
+          <div class="options">${optHTML}</div>
+          <div class="q-nav">
+            <div></div>
+            ${!submitted
+              ? `<button class="btn btn-gold" onclick="confirmAnswer()" ${selected === null ? 'disabled' : ''}>Lock In →</button>`
+              : `<button class="btn btn-gold" onclick="nextQuestion()">${currentQ < QUESTIONS.length - 1 ? 'Next Question →' : 'See My Score →'}</button>`
+            }
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderResult(score) {
+    const c = document.getElementById('main-content');
+    const pct = (score / QUESTIONS.length) * 100;
+    const msgs = [
+      { min: 5, emoji: '🏆', title: 'PERFECT SCORE!', sub: "You're on the leaderboard. Come claim your prize!" },
+      { min: 4, emoji: '🔥', title: 'SO CLOSE!', sub: "Amazing run. Check the leaderboard!" },
+      { min: 3, emoji: '🎵', title: 'NOT BAD!', sub: "Music lover spotted. Try again?" },
+      { min: 0, emoji: '😅', title: 'NICE TRY!', sub: "The coffee is still free though ☕" }
+    ];
+    const msg = msgs.find(m => score >= m.min);
+    c.innerHTML = `
+      <div class="form-card result-card">
+        <div style="font-size: 48px; margin-bottom: 16px;">${msg.emoji}</div>
+        <div class="score-ring" style="--pct: ${pct}%">
+          <div class="score-num">${score}/${QUESTIONS.length}</div>
+        </div>
+        <div class="result-title">${msg.title}</div>
+        <p class="result-sub" style="margin-bottom: 28px;">${msg.sub}</p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-gold" onclick="playAgain()">Play Again</button>
+          <button class="btn btn-ghost" onclick="switchTab('board')">View Leaderboard</button>
+        </div>
+      </div>`;
+  }
+
+  function renderBoard() {
+    const c = document.getElementById('main-content');
+    const trophies = ['🥇', '🥈', '🥉'];
+    const entriesHTML = scores.length === 0
+      ? `<div class="empty-state"><div class="big">🎵</div><p>No players yet — be the first!</p></div>`
+      : scores.slice(0, 10).map((s, i) => `
+          <div class="lb-entry" style="animation-delay: ${i * 0.05}s">
+            <div class="rank-badge ${i < 3 ? 'rank-'+(i+1) : 'rank-other'}">${i < 3 ? trophies[i] : i+1}</div>
+            <div class="lb-name">${s.name}</div>
+            <div class="lb-score">${s.score}<span>/${QUESTIONS.length}</span></div>
+          </div>`).join('');
+
+    c.innerHTML = `
+      <div class="lb-header">
+        <div style="margin-bottom: 12px;"><span class="vinyl-decor"></span></div>
+        <div class="lb-title">LEADERBOARD</div>
+        <div class="lb-subtitle">Tunes & Trivia · Horn Commons</div>
+        <div class="lb-live"><div class="live-dot"></div>LIVE</div>
+      </div>
+      ${entriesHTML}
+      <button class="reset-btn" onclick="clearScores()">Clear Scores (Host Only)</button>`;
+  }
+
+  renderPlay();
+</script>
+</body>
+</html>
