@@ -1,0 +1,9 @@
+{
+  "name": "tunes-and-trivia-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A browser-based Tunes and Trivia game with a local leaderboard.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
