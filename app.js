@@ -343,14 +343,12 @@ function renderQuestion() {
 
 function renderResult() {
   const score = scoreGame();
-  const result = getResultMessage(score);
   const percent = `${(score / QUESTIONS.length) * 100}%`;
 
   return `
     <section class="panel result">
       <div class="score-ring" style="--pct: ${percent};"><span>${score}/${QUESTIONS.length}</span></div>
-      <h2 class="result-title">${result.title}</h2>
-      <p class="result-copy">${result.copy}</p>
+      <h2 class="result-title">Tuesday, 8AM in Trim. Be there!</h2>
       <div class="result-actions">
         <button class="button button-primary" type="button" id="play-again-button">Play Again</button>
         <button class="button button-secondary" type="button" id="show-board-button">View Leaderboard</button>
