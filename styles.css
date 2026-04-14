@@ -5,8 +5,8 @@
   --text: #f5f7fb;
   --muted: #98a4b8;
   --line: rgba(255, 255, 255, 0.08);
-  --accent: #ff66c4;
-  --accent-deep: #ff66c4;
+  --accent: #ffc145;
+  --accent-deep: #ff8c42;
   --hot: #ff5d73;
   --cool: #60d3ff;
   --good: #46c37b;
@@ -97,15 +97,7 @@ body::after {
 }
 
 .brand span {
-  color: var(--accent);
-}
-
-.event-meta {
-  margin: 0.35rem 0 0;
-  color: #ffffff;
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  color: var(--hot);
 }
 
 .tabs {

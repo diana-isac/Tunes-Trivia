@@ -1,43 +1,7 @@
-const STORAGE_KEY = "tunes-and-trivia-scores";
+const DEVICE_KEY = "tunes-and-trivia-device-id";
+const SESSION_KEY = "tunes-and-trivia-session";
 const LETTERS = ["A", "B", "C", "D"];
-const QUESTIONS = [
-  {
-    type: "trivia",
-    prompt: "Which artist currently holds the all-time record for the most Grammy wins?",
-    options: ["Taylor Swift", "Beyonce", "Adele", "Quincy Jones"],
-    answer: 1
-  },
-  {
-    type: "lyric",
-    prompt: 'Finish the lyric: "Is this the real life? Is this just fantasy? Caught in a landslide..."',
-    options: ["No escape from reality", "Hit me baby one more time", "Living on a prayer", "Under pressure tonight"],
-    answer: 0
-  },
-  {
-    type: "trivia",
-    prompt: "What year did Spotify officially launch for public use?",
-    options: ["2006", "2008", "2010", "2012"],
-    answer: 1
-  },
-  {
-    type: "lyric",
-    prompt: 'Finish the lyric: "I got a feeling, that tonight is gonna be a good..."',
-    options: ["Day", "Night", "Memory", "Time"],
-    answer: 1
-  },
-  {
-    type: "trivia",
-    prompt: "Which city is widely known as the birthplace of jazz?",
-    options: ["Chicago", "New Orleans", "Memphis", "St. Louis"],
-    answer: 1
-  },
-  {
-    type: "trivia",
-    prompt: "Which instrument has 88 keys on a standard modern version?",
-    options: ["Violin", "Drum kit", "Piano", "Trumpet"],
-    answer: 2
-  }
-];
+const QUESTIONS = window.TUNES_TRIVIA_QUESTIONS || [];
 
 const state = {
   view: "play",
@@ -47,7 +11,14 @@ const state = {
   selectedIndex: null,
   submitted: false,
   answers: [],
-  scores: []
+  scores: [],
+  sessionId: null,
+  score: null,
+  durationMs: null,
+  startError: "",
+  boardError: "",
+  introNotice: "",
+  isBusy: false
 };
 
 const app = document.getElementById("app");
@@ -58,48 +29,14 @@ tabButtons.forEach((button) => {
     const tab = button.dataset.tab;
     state.view = tab;
     syncTabs();
+
     if (tab === "leaderboard") {
       await refreshScores();
     }
+
     render();
   });
 });
-
-function createStorage() {
-  if (window.storage && typeof window.storage.get === "function") {
-    return {
-      async getScores() {
-        const result = await window.storage.get(STORAGE_KEY, true);
-        return result ? JSON.parse(result.value) : [];
-      },
-      async saveScores(scores) {
-        await window.storage.set(STORAGE_KEY, JSON.stringify(scores), true);
-      },
-      async clearScores() {
-        await window.storage.delete(STORAGE_KEY, true);
-      }
-    };
-  }
-
-  return {
-    async getScores() {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-      } catch {
-        return [];
-      }
-    },
-    async saveScores(scores) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
-    },
-    async clearScores() {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  };
-}
-
-const storage = createStorage();
 
 function syncTabs() {
   tabButtons.forEach((button) => {
@@ -116,8 +53,98 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function scoreGame() {
-  return state.answers.filter((value, index) => value === QUESTIONS[index].answer).length;
+function getStorage() {
+  return window.localStorage;
+}
+
+function getDeviceId() {
+  const storage = getStorage();
+  let value = storage.getItem(DEVICE_KEY);
+
+  if (!value) {
+    value = window.crypto && typeof window.crypto.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    storage.setItem(DEVICE_KEY, value);
+  }
+
+  return value;
+}
+
+function loadSavedSession() {
+  try {
+    const raw = getStorage().getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionSnapshot() {
+  if (!state.sessionId || state.stage !== "question") {
+    getStorage().removeItem(SESSION_KEY);
+    return;
+  }
+
+  getStorage().setItem(
+    SESSION_KEY,
+    JSON.stringify({
+      sessionId: state.sessionId,
+      playerName: state.playerName,
+      currentQuestion: state.currentQuestion,
+      selectedIndex: state.selectedIndex,
+      submitted: state.submitted,
+      answers: state.answers
+    })
+  );
+}
+
+function clearSessionSnapshot() {
+  getStorage().removeItem(SESSION_KEY);
+}
+
+function restoreSavedSession() {
+  const snapshot = loadSavedSession();
+
+  if (!snapshot || !snapshot.sessionId) {
+    return;
+  }
+
+  state.stage = "question";
+  state.playerName = snapshot.playerName || "";
+  state.currentQuestion = Number(snapshot.currentQuestion) || 0;
+  state.selectedIndex = Number.isInteger(snapshot.selectedIndex) ? snapshot.selectedIndex : null;
+  state.submitted = Boolean(snapshot.submitted);
+  state.answers = Array.isArray(snapshot.answers) ? snapshot.answers : [];
+  state.sessionId = snapshot.sessionId;
+  state.introNotice = "Resumed your in-progress run on this device.";
+}
+
+async function apiFetch(url, options = {}) {
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    ...options
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(payload.error || "Request failed.");
+    error.code = payload.code || "request-failed";
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
+function formatDuration(durationMs) {
+  const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function getResultMessage(score) {
@@ -127,18 +154,21 @@ function getResultMessage(score) {
       copy: "You cleared every track. Put your name on the board and take a victory lap."
     };
   }
+
   if (score >= QUESTIONS.length - 1) {
     return {
       title: "Almost flawless",
       copy: "One miss away from a sweep. That is a serious music brain."
     };
   }
+
   if (score >= Math.ceil(QUESTIONS.length / 2)) {
     return {
       title: "Solid run",
       copy: "You held your own. Run it back and chase the top spot."
     };
   }
+
   return {
     title: "Warm-up round",
     copy: "The leaderboard is still open. Another round might hit harder."
@@ -146,24 +176,13 @@ function getResultMessage(score) {
 }
 
 async function refreshScores() {
-  const scores = await storage.getScores();
-  state.scores = scores
-    .slice()
-    .sort((a, b) => b.score - a.score || a.timestamp - b.timestamp)
-    .slice(0, 10);
-}
-
-async function persistScore() {
-  const existing = await storage.getScores();
-  const next = existing.concat({
-    name: state.playerName,
-    score: scoreGame(),
-    timestamp: Date.now()
-  });
-
-  next.sort((a, b) => b.score - a.score || a.timestamp - b.timestamp);
-  await storage.saveScores(next);
-  state.scores = next.slice(0, 10);
+  try {
+    const payload = await apiFetch("/api/leaderboard");
+    state.scores = payload.scores || [];
+    state.boardError = "";
+  } catch (error) {
+    state.boardError = error.message;
+  }
 }
 
 function resetRun() {
@@ -173,23 +192,65 @@ function resetRun() {
   state.selectedIndex = null;
   state.submitted = false;
   state.answers = [];
+  state.sessionId = null;
+  state.score = null;
+  state.durationMs = null;
+  state.startError = "";
+  state.isBusy = false;
+  clearSessionSnapshot();
 }
 
-function startGame(name) {
-  state.playerName = name.trim();
-  state.stage = "question";
-  state.currentQuestion = 0;
-  state.selectedIndex = null;
-  state.submitted = false;
-  state.answers = [];
+async function startGame(name) {
+  state.startError = "";
+  state.introNotice = "";
+  state.isBusy = true;
   render();
+
+  try {
+    const payload = await apiFetch("/api/session/start", {
+      method: "POST",
+      body: JSON.stringify({
+        playerName: name.trim(),
+        deviceId: getDeviceId()
+      })
+    });
+
+    state.playerName = payload.session.playerName;
+    state.stage = "question";
+    state.currentQuestion = 0;
+    state.selectedIndex = null;
+    state.submitted = false;
+    state.answers = [];
+    state.sessionId = payload.session.id;
+    state.score = null;
+    state.durationMs = null;
+    saveSessionSnapshot();
+  } catch (error) {
+    if (error.code === "already-played") {
+      state.startError = "This device has already completed its run for the event.";
+    } else if (error.code === "session-active") {
+      const snapshot = loadSavedSession();
+      if (snapshot && snapshot.sessionId === error.payload.session?.id) {
+        restoreSavedSession();
+      } else {
+        state.startError = "This device already has an active run in progress.";
+      }
+    } else {
+      state.startError = error.message;
+    }
+  } finally {
+    state.isBusy = false;
+    render();
+  }
 }
 
 function selectAnswer(index) {
   if (state.submitted) {
     return;
   }
+
   state.selectedIndex = index;
+  saveSessionSnapshot();
   render();
 }
 
@@ -200,28 +261,74 @@ function lockAnswer() {
 
   state.submitted = true;
   state.answers.push(state.selectedIndex);
+  saveSessionSnapshot();
   render();
+}
+
+async function finishGame() {
+  state.isBusy = true;
+  render();
+
+  try {
+    const payload = await apiFetch("/api/session/finish", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: state.sessionId,
+        answers: state.answers
+      })
+    });
+
+    state.score = payload.result.score;
+    state.durationMs = payload.result.durationMs;
+    state.stage = "result";
+    state.view = "play";
+    clearSessionSnapshot();
+    await refreshScores();
+  } catch (error) {
+    state.startError = error.message;
+    state.stage = "intro";
+    clearSessionSnapshot();
+  } finally {
+    state.isBusy = false;
+    render();
+  }
 }
 
 async function advanceQuestion() {
   const isLast = state.currentQuestion === QUESTIONS.length - 1;
+
   if (isLast) {
-    state.stage = "result";
-    await persistScore();
-    render();
+    await finishGame();
     return;
   }
 
   state.currentQuestion += 1;
   state.selectedIndex = null;
   state.submitted = false;
+  saveSessionSnapshot();
   render();
 }
 
 async function clearLeaderboard() {
-  await storage.clearScores();
-  state.scores = [];
+  state.boardError = "";
+
+  try {
+    await apiFetch("/api/leaderboard/clear", { method: "POST", body: JSON.stringify({}) });
+    await refreshScores();
+    resetRun();
+  } catch (error) {
+    state.boardError = error.message;
+  }
+
   render();
+}
+
+function renderFeedback(message) {
+  if (!message) {
+    return "";
+  }
+
+  return `<p class="meta-note">${escapeHtml(message)}</p>`;
 }
 
 function renderIntro() {
@@ -232,21 +339,20 @@ function renderIntro() {
         <h2 class="hero-title">Start the set. <strong>Chase the leaderboard.</strong></h2>
         <p>
           Tunes & Trivia is a fast browser game built for live events, coffee chats, club tables,
-          and campus giveaways. Players get one shot through a six-question mix of music facts
-          and lyric prompts.
+          and campus giveaways. Players get one shot through a ten-question mix of music facts.
         </p>
         <div class="hero-grid">
           <div class="pill">
-            <strong>6 quick questions</strong>
-            <span>Short enough for walk-up traffic and repeat plays.</span>
+            <strong>${QUESTIONS.length} quick questions</strong>
+            <span>Short enough for walk-up traffic and fast event play.</span>
           </div>
           <div class="pill">
             <strong>Live leaderboard</strong>
-            <span>Scores are ranked instantly with stable tie-breaking.</span>
+            <span>Scores are ranked instantly by score, then fastest finish time.</span>
           </div>
           <div class="pill">
-            <strong>Browser-safe storage</strong>
-            <span>Works with custom window.storage or standard localStorage.</span>
+            <strong>One run per device</strong>
+            <span>Each browser gets one completed attempt for the event.</span>
           </div>
         </div>
       </article>
@@ -263,10 +369,15 @@ function renderIntro() {
               maxlength="30"
               placeholder="Enter your name"
               autocomplete="off"
+              ${state.isBusy ? "disabled" : ""}
             />
           </div>
-          <button class="button button-primary" type="submit">Start Playing</button>
-          <p class="meta-note">Six questions. About two minutes. Top ten scores stay on the board.</p>
+          <button class="button button-primary" type="submit" ${state.isBusy ? "disabled" : ""}>
+            ${state.isBusy ? "Starting..." : "Start Playing"}
+          </button>
+          <p class="meta-note">Ten questions. One timed run. Top scores update live across every screen.</p>
+          ${renderFeedback(state.introNotice)}
+          ${renderFeedback(state.startError)}
         </form>
       </aside>
     </section>
@@ -327,8 +438,8 @@ function renderQuestion() {
         <div class="quiz-actions">
           ${
             state.submitted
-              ? `<button class="button button-primary" type="button" id="next-button">${
-                  state.currentQuestion === QUESTIONS.length - 1 ? "See My Score" : "Next Question"
+              ? `<button class="button button-primary" type="button" id="next-button" ${state.isBusy ? "disabled" : ""}>${
+                  state.currentQuestion === QUESTIONS.length - 1 ? (state.isBusy ? "Saving..." : "See My Score") : "Next Question"
                 }</button>`
               : `<button class="button button-primary" type="button" id="lock-button" ${
                   state.selectedIndex === null ? "disabled" : ""
@@ -342,16 +453,19 @@ function renderQuestion() {
 }
 
 function renderResult() {
-  const score = scoreGame();
+  const score = state.score ?? 0;
+  const result = getResultMessage(score);
   const percent = `${(score / QUESTIONS.length) * 100}%`;
 
   return `
     <section class="panel result">
       <div class="score-ring" style="--pct: ${percent};"><span>${score}/${QUESTIONS.length}</span></div>
-      <h2 class="result-title">Tuesday, 8AM in Trim. Be there!</h2>
+      <h2 class="result-title">${result.title}</h2>
+      <p class="result-copy">${result.copy}</p>
+      <p class="meta-note">Official finish time: ${state.durationMs === null ? "--" : formatDuration(state.durationMs)}</p>
       <div class="result-actions">
-        <button class="button button-primary" type="button" id="play-again-button">Play Again</button>
-        <button class="button button-secondary" type="button" id="show-board-button">View Leaderboard</button>
+        <button class="button button-primary" type="button" id="show-board-button">View Leaderboard</button>
+        <button class="button button-secondary" type="button" id="back-home-button">Back To Start</button>
       </div>
     </section>
   `;
@@ -369,7 +483,7 @@ function renderLeaderboard() {
                 <div class="player">${escapeHtml(entry.name)}</div>
                 <div class="subtle">${date}</div>
               </div>
-              <div class="player">${entry.score}/${QUESTIONS.length}</div>
+              <div class="player">${entry.score}/${QUESTIONS.length} · ${formatDuration(entry.durationMs)}</div>
             </div>
           `;
         })
@@ -388,6 +502,7 @@ function renderLeaderboard() {
           <button class="button button-secondary" type="button" id="clear-board-button">Clear Scores</button>
         </div>
       </div>
+      ${renderFeedback(state.boardError)}
       <div class="leaderboard-list">${items}</div>
     </section>
   `;
@@ -429,7 +544,7 @@ function bindIntroEvents() {
       return;
     }
 
-    startGame(name);
+    void startGame(name);
   });
 }
 
@@ -459,15 +574,15 @@ function bindQuestionEvents() {
 }
 
 function bindResultEvents() {
-  document.getElementById("play-again-button").addEventListener("click", () => {
-    resetRun();
-    render();
-  });
-
   document.getElementById("show-board-button").addEventListener("click", async () => {
     state.view = "leaderboard";
     syncTabs();
     await refreshScores();
+    render();
+  });
+
+  document.getElementById("back-home-button").addEventListener("click", () => {
+    resetRun();
     render();
   });
 }
@@ -483,7 +598,35 @@ function bindLeaderboardEvents() {
   });
 }
 
+function connectLeaderboardStream() {
+  const stream = new EventSource("/api/leaderboard/stream");
+
+  stream.addEventListener("leaderboard", (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      state.scores = payload.scores || [];
+      state.boardError = "";
+
+      if (state.view === "leaderboard") {
+        render();
+      }
+    } catch {
+      state.boardError = "Live leaderboard update could not be read.";
+    }
+  });
+
+  stream.addEventListener("error", () => {
+    state.boardError = "Live leaderboard connection dropped. Manual refresh still works.";
+    if (state.view === "leaderboard") {
+      render();
+    }
+  });
+}
+
+restoreSavedSession();
+
 void refreshScores().then(() => {
+  connectLeaderboardStream();
   syncTabs();
   render();
 });
