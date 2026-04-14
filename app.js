@@ -23,6 +23,7 @@ const state = {
 
 const app = document.getElementById("app");
 const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+let browserSupabase = null;
 
 tabButtons.forEach((button) => {
   button.addEventListener("click", async () => {
@@ -183,6 +184,16 @@ async function refreshScores() {
   } catch (error) {
     state.boardError = error.message;
   }
+}
+
+async function ensureSupabaseClient() {
+  if (browserSupabase || !window.supabase || typeof window.supabase.createClient !== "function") {
+    return browserSupabase;
+  }
+
+  const payload = await apiFetch("/api/supabase/config");
+  browserSupabase = window.supabase.createClient(payload.supabase.url, payload.supabase.anonKey);
+  return browserSupabase;
 }
 
 function resetRun() {
@@ -599,28 +610,41 @@ function bindLeaderboardEvents() {
 }
 
 function connectLeaderboardStream() {
-  const stream = new EventSource("/api/leaderboard/stream");
+  void ensureSupabaseClient()
+    .then((client) => {
+      if (!client) {
+        state.boardError = "Live leaderboard is unavailable. Manual refresh still works.";
+        return;
+      }
 
-  stream.addEventListener("leaderboard", (event) => {
-    try {
-      const payload = JSON.parse(event.data);
-      state.scores = payload.scores || [];
-      state.boardError = "";
-
+      client
+        .channel("leaderboard-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "leaderboard_entries" },
+          () => {
+            void refreshScores().then(() => {
+              if (state.view === "leaderboard") {
+                render();
+              }
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR") {
+            state.boardError = "Live leaderboard connection dropped. Manual refresh still works.";
+            if (state.view === "leaderboard") {
+              render();
+            }
+          }
+        });
+    })
+    .catch(() => {
+      state.boardError = "Live leaderboard is unavailable. Manual refresh still works.";
       if (state.view === "leaderboard") {
         render();
       }
-    } catch {
-      state.boardError = "Live leaderboard update could not be read.";
-    }
-  });
-
-  stream.addEventListener("error", () => {
-    state.boardError = "Live leaderboard connection dropped. Manual refresh still works.";
-    if (state.view === "leaderboard") {
-      render();
-    }
-  });
+    });
 }
 
 restoreSavedSession();
